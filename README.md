@@ -58,21 +58,6 @@ pnpm build
 pnpm start status
 ```
 
-## Node-RED Integration
-
-For automated control that runs continuously:
-
-1. Copy the contents of `node-red-function.js`
-2. In Node-RED:
-   - Add an **Inject node** (set to repeat every 30 seconds)
-   - Add a **Function node** (paste the code)
-   - Optionally add a **Debug node** to monitor changes
-3. Deploy the flow
-
-The function will automatically adjust soundbar settings whenever the input source changes.
-
-**Requirements:** Node.js 18+ (for native `fetch` support) or enable `functionExternalModules` with `node-fetch` in older versions.
-
 ## API Overview
 
 The soundbar exposes an HTTP API with no authentication required:
@@ -98,7 +83,3 @@ Ambeo 3D:           ON
 Night Mode:         OFF
 Voice Enhancement:  ON
 ```
-
-## License
-
-ISC
