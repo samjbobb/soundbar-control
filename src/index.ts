@@ -136,6 +136,33 @@ program
     }
   });
 
+async function runAuto(api: SoundbarAPI): Promise<void> {
+  // Get current input
+  const input = await api.getCurrentInput();
+  const inputName = input?.[0]?.playLogicData?.mediaRoles?.title || "unknown";
+  const serviceId = input?.[0]?.playLogicData?.mediaRoles?.mediaData?.metaData?.serviceID || "unknown";
+
+  console.log(`Current Input: ${inputName} (${serviceId})`);
+
+  // Determine if this is TV/HDMI or music source
+  const isTV = serviceId.toUpperCase() === "HDMI";
+  const isMusicSource = ["AIRPLAY", "SPOTIFY", "BLUETOOTH"].includes(serviceId.toUpperCase());
+
+  if (isTV) {
+    console.log("Detected TV input - applying Movie mode settings...");
+    await api.setAudioPreset("movie");
+    await api.setAmbeo(true);
+    await api.setVoiceEnhancement(true);
+  } else if (isMusicSource) {
+    console.log("Detected music input - applying Music mode settings...");
+    await api.setAudioPreset("music");
+    await api.setAmbeo(false);
+    await api.setVoiceEnhancement(false);
+  } else {
+    console.log(`Unknown input type: ${serviceId} - no changes made.`);
+  }
+}
+
 // Auto command - automatically configure based on input
 program
   .command("auto")
@@ -143,44 +170,35 @@ program
   .action(async () => {
     const host = program.opts().host;
     const api = new SoundbarAPI(host);
-
     try {
-      // Get current input
-      const input = await api.getCurrentInput();
-      const inputName = input?.[0]?.playLogicData?.mediaRoles?.title || "unknown";
-      const serviceId = input?.[0]?.playLogicData?.mediaRoles?.mediaData?.metaData?.serviceID || "unknown";
-
-      console.log(`\nCurrent Input: ${inputName} (${serviceId})`);
-
-      // Determine if this is TV/HDMI or music source
-      const isTV = serviceId.toUpperCase() === "HDMI";
-      const isMusicSource = ["AIRPLAY", "SPOTIFY", "BLUETOOTH"].includes(serviceId.toUpperCase());
-
-      if (isTV) {
-        console.log("\nDetected TV input - applying Movie mode settings...\n");
-        await api.setAudioPreset("movie");
-        console.log("✓ Set mode to Movie");
-        await api.setAmbeo(true);
-        console.log("✓ Enabled Ambeo 3D");
-        await api.setVoiceEnhancement(true);
-        console.log("✓ Enabled Voice Enhancement");
-      } else if (isMusicSource) {
-        console.log("\nDetected music input - applying Music mode settings...\n");
-        await api.setAudioPreset("music");
-        console.log("✓ Set mode to Music");
-        await api.setAmbeo(false);
-        console.log("✓ Disabled Ambeo 3D");
-        await api.setVoiceEnhancement(false);
-        console.log("✓ Disabled Voice Enhancement");
-      } else {
-        console.log(`\nUnknown input type: ${serviceId}`);
-        console.log("No changes made. You may need to update the auto logic for this input type.");
-      }
-
-      console.log();
+      await runAuto(api);
     } catch (e) {
       console.error(`Error: ${e}`);
     }
+  });
+
+// Daemon command - run auto in a loop
+program
+  .command("daemon")
+  .description("Run auto-configuration in a loop")
+  .option("--interval <seconds>", "Seconds between checks", "15")
+  .action(async (opts) => {
+    const host = program.opts().host;
+    const api = new SoundbarAPI(host);
+    const interval = parseInt(opts.interval, 10) * 1000;
+
+    console.log(`Starting soundbar daemon (interval: ${opts.interval}s, host: ${host})`);
+
+    const run = async () => {
+      try {
+        await runAuto(api);
+      } catch (e) {
+        console.error(`Error: ${e}`);
+      }
+    };
+
+    await run();
+    setInterval(run, interval);
   });
 
 program.parse();
