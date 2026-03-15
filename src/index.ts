@@ -136,15 +136,14 @@ program
     }
   });
 
-async function runAuto(api: SoundbarAPI): Promise<void> {
-  // Get current input
-  const input = await api.getCurrentInput();
-  const inputName = input?.[0]?.playLogicData?.mediaRoles?.title || "unknown";
-  const serviceId = input?.[0]?.playLogicData?.mediaRoles?.mediaData?.metaData?.serviceID || "unknown";
+function getInputInfo(input: any): { name: string; serviceId: string } {
+  return {
+    name: input?.[0]?.playLogicData?.mediaRoles?.title || "unknown",
+    serviceId: input?.[0]?.playLogicData?.mediaRoles?.mediaData?.metaData?.serviceID || "unknown",
+  };
+}
 
-  console.log(`Current Input: ${inputName} (${serviceId})`);
-
-  // Determine if this is TV/HDMI or music source
+async function applySettings(api: SoundbarAPI, serviceId: string): Promise<void> {
   const isTV = serviceId.toUpperCase() === "HDMI";
   const isMusicSource = ["AIRPLAY", "SPOTIFY", "BLUETOOTH"].includes(serviceId.toUpperCase());
 
@@ -161,6 +160,13 @@ async function runAuto(api: SoundbarAPI): Promise<void> {
   } else {
     console.log(`Unknown input type: ${serviceId} - no changes made.`);
   }
+}
+
+async function runAuto(api: SoundbarAPI): Promise<void> {
+  const input = await api.getCurrentInput();
+  const { name: inputName, serviceId } = getInputInfo(input);
+  console.log(`Current Input: ${inputName} (${serviceId})`);
+  await applySettings(api, serviceId);
 }
 
 // Auto command - automatically configure based on input
@@ -189,9 +195,18 @@ program
 
     console.log(`Starting soundbar daemon (interval: ${opts.interval}s, host: ${host})`);
 
+    let lastServiceId: string | null = null;
+
     const run = async () => {
       try {
-        await runAuto(api);
+        const input = await api.getCurrentInput();
+        const { name: inputName, serviceId } = getInputInfo(input);
+
+        if (serviceId !== lastServiceId) {
+          console.log(`Input changed: ${inputName} (${serviceId})`);
+          await applySettings(api, serviceId);
+          lastServiceId = serviceId;
+        }
       } catch (e) {
         console.error(`Error: ${e}`);
       }
